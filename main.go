@@ -74,7 +74,7 @@ func main() {
     proxy.OnResponse().DoFunc(
         func(resp *http.Response, ctx *goproxy.ProxyCtx) *http.Response{
             fmt.Println("RESPONSE\n\n")
-            resp.Header.Set("Content-Security-Policy", "default-src none")
+            resp.Header.Set("Content-Security-Policy", "default-src 'self'; report-uri " + *reportptr)
             return resp
     })
 
