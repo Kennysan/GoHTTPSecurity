@@ -5,14 +5,14 @@ import (
 	//"log"
 	//"net/http"
     "fmt"
-    //"regexp"
+    "regexp"
     "os"
     "bufio"
     "encoding/json"
     "net/url"
+    "strings"
+    //"sort"
 )
-
-var policy map[string][]string
 
 type CSPReport struct {
     DocumentURI string `json:"document-uri"`
@@ -62,19 +62,17 @@ func (cspcoll *CSPReportCollection) FromJson(jsonStr string) error{
         return
 }*/
 
+func ReverseArray(s []string) []string {
+    reverse := make([]string, len(s))
+    for _, test := range s {
+        reverse = append(reverse, test) 
+    }
+    return reverse
+}
+
 func main() {
-        policy = map[string][]string{
-            "script-src" : {},
-            "object-src" : {},
-            "img-src" : {},
-            "media-src" : {},
-            "style-src" : {},
-            "frame-src" : {},
-            "font-src" : {},
-            "connect-src" : {},
-            "default" : {},
-        }
-        fmt.Printf("Starting!")
+        policy := make(map[string][][]string)
+        fmt.Println("Starting!")
         cspc := new(CSPReportCollection)
         lines, err := readLines("etsy.log")
         if err != nil {
@@ -83,15 +81,34 @@ func main() {
         }
         //reports = make([]CSPReport, len(lines))
         fmt.Printf("file length: %v", len(lines))
-        cspc.FromJson(`{"csp-report":{"document-uri":"http://www.etsy.com/","referrer":"","violated-directive":"style-src 'none'","effective-directive":"style-src","original-policy":"default-src 'none';script-src 'none';object-src 'none';img-src 'none';media-src 'none';style-src 'none';frame-src 'none';font-src 'none';connect-src 'none';report-uri /csp.php","blocked-uri":"http://site.etsystatic.com"}}`)
-        fmt.Println(cspc.Report)
+        for _, line := range lines {
+        //cspc.FromJson(`{"csp-report":{"document-uri":"http://www.etsy.com/","referrer":"","violated-directive":"style-src 'none'","effective-directive":"style-src","original-policy":"default-src 'none';script-src 'none';object-src 'none';img-src 'none';media-src 'none';style-src 'none';frame-src 'none';font-src 'none';connect-src 'none';report-uri /csp.php","blocked-uri":"http://site.etsystatic.com"}}`)
+        cspc.FromJson(line)
+        //fmt.Println(cspc.Report)
         for _,v := range cspc.Report {
         //    cspc.FromJson(lines[index])
             //fmt.Printf("report: %s", cspc.Pool)
             //fmt.Println("KEY: %s",k)
             u ,_ := url.Parse(v.DocumentURI)
+            b ,_ := url.Parse(v.BlockedURI)
             //check to see if document-uri is the host we want.
-            fmt.Printf("%s", u.Host)
-
+            fmt.Printf("HOST: %s\n", u.Host)
+            //regex. ugh.
+            r , _ := regexp.Compile("www\\.etsy\\.com")
+            //check if the violation report is for the host we care about
+            if (r.MatchString(u.Host)) {
+                fmt.Println("DOMAIN MATCH")
+                components := strings.Split(v.ViolatedDirective, " ")
+                fqdn := b.Scheme+ "." + b.Host
+                urlcomponents := strings.Split(fqdn, ".")
+                //sort.Reverse(urlcomponents)
+                //fmt.Printf(components[0])
+                fmt.Printf(fqdn)
+                fmt.Printf(urlcomponents[0])
+                //add the split url to the correct violation bucket
+                policy[components[0]] = append(policy[components[0]], urlcomponents)
+            }
         }
+    }
+    //fmt.Println(policy["script-src"])
 }
